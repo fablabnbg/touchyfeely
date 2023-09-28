@@ -22,17 +22,17 @@ WiFiClient Client;
 PubSubClient Mqttclient(Client);
  
 
-NS2009  TS(false, true);
+NS2009 TS(false, true);
 
-int Light_mode = 0;
+bool LightIsOn = false;
 
 static bool Eth_connected = false;
 static bool BlockNextMessage = false;
 
-const char * Mqttserver = "172.22.35.45";
+const char *Mqttserver = "172.22.35.45";
 const int Mqttport = 1883;
 
-#define BESPRECHUNG 1
+#define KUECHE 1
 
 #ifdef KUECHE // Panel Kueche
 const char * MqttClientID = "WerkstattTFT";
@@ -118,26 +118,23 @@ void setup()
 
   Mqttclient.setServer(Mqttserver, Mqttport);
   Mqttclient.setCallback(mqtt_callback);
-  paint_on();
 }
 
-void paint_on()
-{
-  tft.fillScreen(ILI9341_WHITE);
-  tft.setTextColor(ILI9341_BLACK);
-  tft.setCursor(100,120);
-  tft.setTextSize(3);
-  tft.println("ON");
-  
-}
+void Display() {
+  tft.fillScreen(LightIsOn ? ILI9341_BLACK : ILI9341_WHITE);
+  tft.setTextColor(LightIsOn ? ILI9341_WHITE : ILI9341_BLACK);
 
-void paint_off()
-{
-  tft.fillScreen(ILI9341_BLACK);
-  tft.setTextColor(ILI9341_WHITE);
-  tft.setCursor(100,120);
-  tft.setTextSize(3);
-  tft.println("OFF");
+  tft.setTextSize(10);
+  if (LightIsOn)
+    tft.setCursor(35, 125);
+  else
+    tft.setCursor(65, 125);
+  tft.println(LightIsOn ? "OFF" : "ON");
+  tft.setCursor(2, 311);
+  tft.setTextSize(1);
+  tft.printf("MQTT %sconnected", !Mqttclient.connected() ? "not " : "");
+  tft.setCursor(216, 311);
+  tft.printf("v1.1");
 }
 
 void mqtt_callback(char* topic, byte* message, unsigned int length)
@@ -158,33 +155,14 @@ void mqtt_callback(char* topic, byte* message, unsigned int length)
   // If a message is received on the topic esp32/output, you check if the message is either "on" or "off". 
   // Changes the output state according to the message
   if (String(topic) == MqttTopicRead) {
-    
-    Serial.print("Changing output to ");
-    if(messageTemp == "on" || messageTemp == "ON"){
-      Serial.println("on");
-      DisplayLightToOff();
-    }
-    else if(messageTemp == "off" || messageTemp == "OFF"){
-      Serial.println("off");
-      DisplayLightToOn();
-    }
+    if (messageTemp == "on" || messageTemp == "ON")
+      LightIsOn = true;
+    if (messageTemp == "off" || messageTemp == "OFF")
+      LightIsOn = false;
+    Display();
   }
 }
 
-
-//kontrolliert nur das display und den internen licht status
-void DisplayLightToOn()
-{
-  paint_on();
-  Light_mode = 0;
-}
-
-//kontrolliert nur das display und den internen licht status
-void DisplayLightToOff()
-{
-  paint_off();
-  Light_mode = 1;
-}
 
 void SendMQTTMessage(bool on)
 {
@@ -207,27 +185,10 @@ void loop(void)
 
   if(TS.CheckTouched())
   {
-    if(Light_mode != 0)
-    {
-      DisplayLightToOn();
-      
-    }else
-    {
-      DisplayLightToOff();
-    }
-    SendMQTTMessage(Light_mode);
-    
-    delay(1000);
+    SendMQTTMessage(LightIsOn = !LightIsOn);
+    delay(200);
   }
 
   delay(50);
 }
 
-/*void loop ()
-{
-  TS.ScanBlocking ();
-  Serial.printf ("Screen touched!\n\r");
-  Handle_Touch ();
-  while (TS.CheckTouched ());
-  Serial.printf ("Screen released!\n\r");
-}*/
