@@ -12,12 +12,7 @@
 
 #define LED_PIN 33
 
-#ifdef  ARDUINO_OLIMEXINO_STM32F3
-Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
-#else
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
-#endif
-
 WiFiClient Client;
 PubSubClient Mqttclient(Client);
  
@@ -32,46 +27,50 @@ static bool BlockNextMessage = false;
 const char *Mqttserver = "172.22.35.45";
 const int Mqttport = 1883;
 
-#define KUECHE 1
+#define WERKSTATT 1
 
-#ifdef KUECHE // Panel Kueche
-const char * MqttClientID = "WerkstattTFT";
-const char * MqttTopicRead = "homie/kuesp3bf9d2/CTLicht1/state";//"/SmartPanelControl/State/Licht/Werkstatt/";
-const char * MqttTopicWrite = "homie/kuesp3bf9d2/CTLicht1/state/set";//"/SmartPanelControl/Ctrl/Licht/Werkstatt/";
+#ifdef KUECHE
+const char * MqttClientID = "KuecheTFT";
+const char * MqttTopicRead = "CtrlTFT/Licht/Kueche/status";
+const char * MqttTopicWrite = "CtrlTFT/Licht/Kueche/set";
 #endif
 
-#ifdef BESPRECHUNG // Besprechung
+#ifdef BESPRECHUNG
 const char * MqttClientID = "BesprechungTFT";
-const char * MqttTopicRead = "homie/bzespb3a46d/CTLicht1/state";
-const char * MqttTopicWrite = "homie/bzespb3a46d/CTLicht1/state/set";
-const char * MqttTopicWrite2 = "homie/bzespb3a46d/CTLicht2/state/set";
+const char * MqttTopicRead = "CtrlTFT/Licht/Besprechungszimmer/Vorne/status";
+const char * MqttTopicWrite = "CtrlTFT/Licht/Besprechungszimmer/Vorne/set";
+const char * MqttTopicWrite2 = "CtrlTFT/Licht/Besprechungszimmer/Hinten/set";
+#endif
+
+#ifdef WERKSTATT
+const char * MqttClientID = "WerkstattTFT";
+const char * MqttTopicRead = "CtrlTFT/Licht/Werkstatt/status";
+const char * MqttTopicWrite = "CtrlTFT/Licht/Werkstatt/set";
 #endif
 
 void MQTTReconnect()
 {
   while (!Mqttclient.connected()) {
+    Display();
     Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
     if (Mqttclient.connect(MqttClientID)) {
       Serial.println("connected");
-      // Subscribe
       Mqttclient.subscribe(MqttTopicRead);
     } else {
       Serial.print("failed, rc=");
       Serial.print(Mqttclient.state());
       Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
       delay(5000);
     }
   }
 }
+
 //heißt zwar WiFiEvent, ist aber ETH
 void WiFiEvent(WiFiEvent_t event)
 {
   switch (event) {
     case SYSTEM_EVENT_ETH_START:
       Serial.println("ETH Started");
-      //set eth hostname here
       ETH.setHostname("esp32-ethernet");
       break;
     case SYSTEM_EVENT_ETH_CONNECTED:
@@ -106,12 +105,13 @@ void WiFiEvent(WiFiEvent_t event)
 
 void setup()
 {
-  Serial.begin (115200);
+  Serial.begin(115200);
   Wire.begin();
   pinMode(TFT_DC, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH); // off
+  digitalWrite(LED_PIN, HIGH);
   tft.begin();
+  Display();
   //heißt zwar WiFi, ist aber ETH
   WiFi.onEvent(WiFiEvent);
   ETH.begin();
@@ -120,45 +120,44 @@ void setup()
   Mqttclient.setCallback(mqtt_callback);
 }
 
+bool previousLightIsOn;
+bool previousMqttclientConnected;
 void Display() {
-  tft.fillScreen(LightIsOn ? ILI9341_BLACK : ILI9341_WHITE);
-  tft.setTextColor(LightIsOn ? ILI9341_WHITE : ILI9341_BLACK);
+  // only redraw if something changed
+  if (LightIsOn != previousLightIsOn || Mqttclient.connected() != previousMqttclientConnected) {
+    previousLightIsOn = LightIsOn;
+    previousMqttclientConnected = Mqttclient.connected();
 
-  tft.setTextSize(10);
-  if (LightIsOn)
-    tft.setCursor(35, 125);
-  else
-    tft.setCursor(65, 125);
-  tft.println(LightIsOn ? "OFF" : "ON");
-  tft.setCursor(2, 311);
-  tft.setTextSize(1);
-  tft.printf("MQTT %sconnected", !Mqttclient.connected() ? "not " : "");
-  tft.setCursor(216, 311);
-  tft.printf("v1.1");
+    tft.fillScreen(LightIsOn ? ILI9341_BLACK : ILI9341_WHITE);
+    tft.setTextColor(LightIsOn ? ILI9341_WHITE : ILI9341_BLACK);
+
+    tft.setTextSize(10);
+    if (LightIsOn)
+      tft.setCursor(35, 125);
+    else
+      tft.setCursor(65, 125);
+    tft.println(LightIsOn ? "OFF" : "ON");
+
+    tft.setCursor(2, 311);
+    tft.setTextSize(1);
+    tft.printf("MQTT %sconnected", !Mqttclient.connected() ? "not " : "");
+    tft.setCursor(216, 311);
+    tft.printf("v1.1");
+  }
 }
 
 void mqtt_callback(char* topic, byte* message, unsigned int length)
 {
-  Serial.print("Message arrived on topic: ");
   Serial.print(topic);
-  Serial.print(". Message: ");
+  Serial.print(": ");
   String messageTemp;
-  
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)message[i]);
-    messageTemp += (char)message[i];
-  }
-  Serial.println();
 
-  // Feel free to add more if statements to control more GPIOs with MQTT
+  for (int i = 0; i < length; i++)
+    messageTemp += (char) message[i];
+  Serial.println(messageTemp);
 
-  // If a message is received on the topic esp32/output, you check if the message is either "on" or "off". 
-  // Changes the output state according to the message
   if (String(topic) == MqttTopicRead) {
-    if (messageTemp == "on" || messageTemp == "ON")
-      LightIsOn = true;
-    if (messageTemp == "off" || messageTemp == "OFF")
-      LightIsOn = false;
+    LightIsOn = messageTemp == "true";
     Display();
   }
 }
@@ -167,24 +166,20 @@ void mqtt_callback(char* topic, byte* message, unsigned int length)
 void SendMQTTMessage(bool on)
 {
   Serial.println("Sending MQTT message");
-  Mqttclient.publish(MqttTopicWrite, on ? "on" : "off");
-  
-#ifdef BESPRECHUNG // Besprechung
-  Mqttclient.publish(MqttTopicWrite2, on ? "on" : "off");
+  Mqttclient.publish(MqttTopicWrite, on ? "true" : "false");
+
+#ifdef BESPRECHUNG
+  Mqttclient.publish(MqttTopicWrite2, on ? "true" : "false");
 #endif
 }
 
 void loop(void)
 {
-
-  if(!Mqttclient.connected())
-  {
+  if (!Mqttclient.connected())
     MQTTReconnect();
-  }
   Mqttclient.loop();
 
-  if(TS.CheckTouched())
-  {
+  if (TS.CheckTouched()) {
     SendMQTTMessage(LightIsOn = !LightIsOn);
     delay(200);
   }
