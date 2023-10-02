@@ -1,0 +1,71 @@
+MQTT Topic Struktur für Panel Control
+2023-09-30 20:52
+
+
+172.22.35.45:1883 (mqtt server)
+- CtrlTFT
+    - Licht
+        - Gang
+            - set (true/false)
+            - status
+        - SpaceElektronik
+            - set (true/false)
+            - status
+        - SpaceTextil
+            - set (true/false)
+            - status
+        - SpaceDurchgangsLicht
+            - set (true/false)
+            - status
+        - Buero
+            - set (true/false)
+            - status
+        - SpaceMitte
+            - set (true/false)
+            - status
+        - SpaceOst
+            - set (true/false)
+            - status
+        - SpaceWest
+            - set (true/false)
+            - status
+        - Werkstatt
+            - set (true/false)
+            - status
+        - Handbetrieb
+            - status
+        - Kueche
+            - OnOff
+                - set (true/false)
+                - status
+            - Helligkeit (noch nicht implementiert)
+                - set (Nummer 0 - 100)
+            - FarbTemperatur (noch nicht implementiert)
+                - set (Nummer 0 - 100)
+        - Besprechungszimmer
+            - Vorne
+                - OnOff
+                    - set (true/false)
+                    - status
+                - Helligkeit (noch nicht implementiert)
+                    - set (Nummer 0 - 100)
+                - FarbTemperatur (noch nicht implementiert)
+                    - set (Nummer 0 - 100)
+            - Hinten
+                - OnOff
+                    - set (true/false)
+                    - status
+                - Helligkeit (noch nicht implementiert)
+                    - set (Nummer 0 - 100)
+                - FarbTemperatur (noch nicht implementiert)
+                    - set (Nummer 0 - 100)
+    - Energie
+        - Verbrauch
+            - Woche (in dWh)
+            - Heute (in dWh)
+        - LabPower
+            - status
+        - Handbetrieb
+            - status
+        - LabShutdown
+            - status
