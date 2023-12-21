@@ -17,6 +17,7 @@ PubSubClient mqttClient(ethClient);
 const char* mqttServer = "172.22.35.45";
 const int mqttPort = 1883;
 
+bool firstDraw = true;
 bool lightIsOn;
 bool previousLightIsOn;
 bool lightIsOn2;
@@ -135,7 +136,8 @@ void mqttReconnect() {
 
 void display() {
   // only redraw if something changed
-  if (lightIsOn != previousLightIsOn || lightIsOn2 != previousLightIsOn2 || mqttClient.connected() != previousMqttClientConnected) {
+  if (lightIsOn != previousLightIsOn || lightIsOn2 != previousLightIsOn2 || mqttClient.connected() != previousMqttClientConnected || firstDraw) {
+    firstDraw = false;
     previousLightIsOn = lightIsOn;
     previousLightIsOn2 = lightIsOn2;
     previousMqttClientConnected = mqttClient.connected();
