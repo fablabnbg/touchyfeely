@@ -219,9 +219,9 @@ void loop() {
     touchscreen.Scan();
 
     if (mqttClientId == "BesprechungTFT" && touchscreen.Y >= 160)
-      mqttPublish(mqttTopicWrite2, lightIsOn2 = !lightIsOn2);
+      mqttPublish(mqttTopicWrite2, !lightIsOn2);
     else
-      mqttPublish(mqttTopicWrite, lightIsOn = !lightIsOn);
+      mqttPublish(mqttTopicWrite, !lightIsOn);
 
     delay(200);
   }
