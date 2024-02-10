@@ -39,7 +39,7 @@ void mqttSelfSetup() {
     mqttClientId = "WerkstattTFT";
     mqttTopicRead = "CtrlTFT/Licht/Werkstatt/status";
     mqttTopicWrite = "CtrlTFT/Licht/Werkstatt/set";
-  } else if (macAddress == "08:B6:1F:3A:07:6B") {
+  } else if (macAddress == "40:22:D8:15:CB:CF") {
     mqttClientId = "BueroTFT";
     mqttTopicRead = "CtrlTFT/Licht/Buero/status";
     mqttTopicWrite = "CtrlTFT/Licht/Buero/set";
@@ -74,12 +74,15 @@ void setup() {
   tft.fillScreen(ILI9341_BLACK);
   display();
 
-  WiFi.onEvent(ethEvent); //heißt zwar WiFi, ist aber Ethernet
+  WiFi.onEvent(ethEvent); // heißt zwar WiFi, ist aber Ethernet
   ETH.begin();
+  
   mqttSelfSetup();
 
-  mqttClient.setServer(mqttServer, mqttPort);
-  mqttClient.setCallback(mqttCallback);
+  if (mqttClientId != NULL) {
+    mqttClient.setServer(mqttServer, mqttPort);
+    mqttClient.setCallback(mqttCallback);
+  }
 }
 
 
@@ -116,23 +119,12 @@ void ethEvent(WiFiEvent_t event) {
 
 
 void mqttReconnect() {
-  while (!mqttClient.connected()) {
+  while (!mqttClient.connected() && mqttClientId != NULL) {
     display();
     Serial.print("Attempting MQTT connection... ");
     if (mqttClient.connect(mqttClientId)) {
       Serial.print("connected, got IP ");
       Serial.println(ETH.localIP());
-/*
-      Serial.print("ETH MAC: ");
-      Serial.print(ETH.macAddress());
-      Serial.print(", IPv4: ");
-      Serial.print(ETH.localIP());
-      if (ETH.fullDuplex())
-        Serial.print(", FULL_DUPLEX");
-      Serial.print(", ");
-      Serial.print(ETH.linkSpeed());
-      Serial.println(" Mbps");
-*/
       mqttClient.subscribe(mqttTopicRead);
       if (mqttClientId == "BesprechungTFT")
         mqttClient.subscribe(mqttTopicRead2);
@@ -157,35 +149,37 @@ void display() {
     tft.fillScreen(lightIsOn ? ILI9341_BLACK : ILI9341_WHITE);
     tft.setTextColor(lightIsOn ? ILI9341_WHITE : ILI9341_BLACK);
 
-    if (mqttClientId == "BesprechungTFT") {
-      tft.setCursor(6, 6);
-      tft.setTextSize(3);
-      tft.println("Vorne");
-      if (lightIsOn)
-        tft.setCursor(35, 45);
-      else
-        tft.setCursor(65, 45);
-      tft.setTextSize(10);
-      tft.println(lightIsOn ? "OFF" : "ON");
+    if (mqttClient.connected()) {
+      if (mqttClientId == "BesprechungTFT") {
+        tft.setCursor(6, 6);
+        tft.setTextSize(3);
+        tft.println("Vorne");
+        if (lightIsOn)
+          tft.setCursor(35, 45);
+        else
+          tft.setCursor(65, 45);
+        tft.setTextSize(10);
+        tft.println(lightIsOn ? "OFF" : "ON");
 
-      tft.fillRect(0, 160, 240, 160, lightIsOn2 ? ILI9341_BLACK : ILI9341_WHITE);
-      tft.setTextColor(lightIsOn2 ? ILI9341_WHITE : ILI9341_BLACK);
-      tft.setCursor(6, 166);
-      tft.setTextSize(3);
-      tft.println("Hinten");
-      if (lightIsOn2)
-        tft.setCursor(35, 205);
-      else
-        tft.setCursor(65, 205);
-      tft.setTextSize(10);
-      tft.println(lightIsOn2 ? "OFF" : "ON");
-    } else {
-      if (lightIsOn)
-        tft.setCursor(35, 125);
-      else
-        tft.setCursor(65, 125);
-      tft.setTextSize(10);
-      tft.println(lightIsOn ? "OFF" : "ON");
+        tft.fillRect(0, 160, 240, 160, lightIsOn2 ? ILI9341_BLACK : ILI9341_WHITE);
+        tft.setTextColor(lightIsOn2 ? ILI9341_WHITE : ILI9341_BLACK);
+        tft.setCursor(6, 166);
+        tft.setTextSize(3);
+        tft.println("Hinten");
+        if (lightIsOn2)
+          tft.setCursor(35, 205);
+        else
+          tft.setCursor(65, 205);
+        tft.setTextSize(10);
+        tft.println(lightIsOn2 ? "OFF" : "ON");
+      } else {
+        if (lightIsOn)
+          tft.setCursor(35, 125);
+        else
+          tft.setCursor(65, 125);
+        tft.setTextSize(10);
+        tft.println(lightIsOn ? "OFF" : "ON");
+      }
     }
 
     tft.setCursor(2, 311);
@@ -216,26 +210,28 @@ void mqttCallback(char* topic, byte* messageBytes, unsigned int length) {
 
 
 void mqttPublish(char* topic, bool state) {
-  Serial.println("Publishing new state");
+  Serial.print("Publishing new state: ");
+  Serial.println(state ? "true" : "false");
   mqttClient.publish(topic, state ? "true" : "false");
 }
 
 
 void loop() {
-  if (!mqttClient.connected())
-    mqttReconnect();
-  mqttClient.loop();
   display();
+  if (!mqttClient.connected()) {
+    mqttReconnect();
+    mqttClient.loop();
 
-  if (touchscreen.CheckTouched()) {
-    touchscreen.Scan();
+    if (touchscreen.CheckTouched()) {
+      touchscreen.Scan();
 
-    if (mqttClientId == "BesprechungTFT" && touchscreen.Y >= 160)
-      mqttPublish(mqttTopicWrite2, !lightIsOn2);
-    else
-      mqttPublish(mqttTopicWrite, !lightIsOn);
+      if (mqttClientId == "BesprechungTFT" && touchscreen.Y >= 160)
+        mqttPublish(mqttTopicWrite2, !lightIsOn2);
+      else
+        mqttPublish(mqttTopicWrite, !lightIsOn);
 
-    delay(200);
+      delay(200);
+    }
   }
 
   delay(50);
