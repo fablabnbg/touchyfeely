@@ -120,7 +120,19 @@ void mqttReconnect() {
     display();
     Serial.print("Attempting MQTT connection... ");
     if (mqttClient.connect(mqttClientId)) {
-      Serial.println("connected");
+      Serial.print("connected, got IP ");
+      Serial.println(ETH.localIP());
+/*
+      Serial.print("ETH MAC: ");
+      Serial.print(ETH.macAddress());
+      Serial.print(", IPv4: ");
+      Serial.print(ETH.localIP());
+      if (ETH.fullDuplex())
+        Serial.print(", FULL_DUPLEX");
+      Serial.print(", ");
+      Serial.print(ETH.linkSpeed());
+      Serial.println(" Mbps");
+*/
       mqttClient.subscribe(mqttTopicRead);
       if (mqttClientId == "BesprechungTFT")
         mqttClient.subscribe(mqttTopicRead2);
@@ -180,7 +192,7 @@ void display() {
     tft.setTextSize(1);
     tft.printf("MQTT %sconnected", !mqttClient.connected() ? "not " : "");
     tft.setCursor(216, 311);
-    tft.println("v1.2");
+    tft.println("v1.3");
   }
 }
 
