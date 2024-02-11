@@ -1,8 +1,9 @@
+#include <Arduino.h>
+#include <Board_Pinout.h>
+#include <Adafruit_ILI9341.h>
+#include <NS2009.h>
 #include "Wire.h"
-#include "Board_Pinout.h"
 #include "Adafruit_GFX.h"
-#include "Adafruit_ILI9341.h"
-#include "NS2009.h"
 #include "ETH.h"
 #include "PubSubClient.h"
 
@@ -14,7 +15,7 @@ NS2009 touchscreen(false, true);
 WiFiClient ethClient;
 PubSubClient mqttClient(ethClient);
 
-const char* mqttServer = "172.22.35.45";
+const char* mqttServer = "mqautom.fablab.lan";
 const int mqttPort = 1883;
 
 bool firstDraw = true;
@@ -29,6 +30,13 @@ char* mqttTopicRead;
 char* mqttTopicWrite;
 char* mqttTopicRead2;
 char* mqttTopicWrite2;
+
+void mqttSelfSetup();
+void ethEvent(WiFiEvent_t event);
+void mqttReconnect();
+void display();
+void mqttCallback(char* topic, byte* messageBytes, unsigned int length);
+void mqttPublish(char* topic, bool state);
 
 
 
@@ -76,7 +84,7 @@ void setup() {
 
   WiFi.onEvent(ethEvent); // heißt zwar WiFi, ist aber Ethernet
   ETH.begin();
-  
+
   mqttSelfSetup();
 
   if (mqttClientId != NULL) {
@@ -218,8 +226,10 @@ void mqttPublish(char* topic, bool state) {
 
 void loop() {
   display();
-  if (!mqttClient.connected()) {
-    mqttReconnect();
+
+  if (mqttClientId != NULL) {
+    if (!mqttClient.connected())
+      mqttReconnect();
     mqttClient.loop();
 
     if (touchscreen.CheckTouched()) {
